@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Drawing Studio</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/feather-icons/4.29.0/feather.min.js"></script>
+    <!-- Include updated styles and scripts -->
+    <style>
+        /* Previous CSS remains the same, adding new styles */
+        .action-menu {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .brush-preview {
+            position: fixed;
+            pointer-events: none;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+        }
+
+        .palette {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 5px;
+            margin-top: 10px;
+        }
+
+        .color-swatch {
+            width: 25px;
+            height: 25px;
+            border-radius: 4px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: transform 0.2s;
+        }
+
+        .color-swatch:hover {
+            transform: scale(1.1);
+        }
+
+        .color-swatch.active {
+            border-color: white;
+        }
+
+        .layer-panel {
+            position: fixed;
+            left: 80px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #2d2d2d;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 99;
+        }
+
+        .layer-panel.visible {
+            display: flex;
+        }
+
+        .layer-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px;
+            background: #3d3d3d;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .layer-item.active {
+            background: #007AFF;
+        }
+
+        .symmetry-controls {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #2d2d2d;
+            padding: 10px;
+            border-radius: 12px;
+            display: none;
+            gap: 10px;
+            z-index: 99;
+        }
+
+        .symmetry-controls.visible {
+            display: flex;
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+
+        .loading-overlay.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #007AFF;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .tool-settings {
+            background: #2d2d2d;
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 10px;
+            display: none;
+        }
+
+        .tool-settings.visible {
+            display: block;
+        }
+
+        .smooth-slider {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 4px;
+            border-radius: 2px;
+            background: #007AFF;
+            outline: none;
+            margin: 10px 0;
+        }
+
+        .smooth-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: white;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .smooth-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        .canvas-wrapper {
+            position: relative;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .canvas-wrapper canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        .zoom-controls {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #2d2d2d;
+            padding: 10px;
+            border-radius: 12px;
+            display: flex;
+            gap: 10px;
+            z-index: 100;
+        }
+
+        .history-panel {
+            position: fixed;
+            right: 220px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #2d2d2d;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 99;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .history-panel.visible {
+            display: flex;
+        }
+
+        .history-thumbnail {
+            width: 100px;
+            height: 60px;
+            object-fit: contain;
+            background: #fff;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .history-thumbnail:hover {
+            transform: scale(1.05);
+        }
+
+        .hotkeys-panel {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #2d2d2d;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            display: none;
+            z-index: 1001;
+            max-width: 400px;
+        }
+
+        .hotkeys-panel.visible {
+            display: block;
+        }
+
+        .hotkey-item {
+            display: flex;
+            justify-content: space-between;
+            margin: 8px 0;
+        }
+
+        .hotkey-key {
+            background: #3d3d3d;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <!-- Previous HTML structure remains, adding new elements -->
+    <div class="loading-overlay">
+        <div class="loading-spinner"></div>
+    </div>
+
+    <div class="hotkeys-panel" id="hotkeysPanel">
+        <h3>Keyboard Shortcuts</h3>
+        <div class="hotkey-item">
+            <span>Brush Tool</span>
+            <span class="hotkey-key">B</span>
+        </div>
+        <div class="hotkey-item">
+            <span>Eraser Tool</span>
+            <span class="hotkey-key">E</span>
+        </div>
+        <!-- Add more hotkeys -->
+    </div>
+
+    <script>
+        // Previous JavaScript remains, adding new functionality
+        let scale = 1;
+        let offsetX = 0;
+        let offsetY = 0;
+        let isSpacePressed = false;
+        let lastMouseX = 0;
+        let lastMouseY = 0;
+        const layers = [];
+        let currentLayer = 0;
+        
+        // Initialize brush preview
+        const brushPreview = document.createElement('div');
+        brushPreview.className = 'brush-preview';
+        document.body.appendChild(brushPreview);
+
+        // Update brush preview
+        function updateBrushPreview(e) {
+            const size = document.getElementById('brushSize').value;
+            const opacity = document.getElementById('opacity').value / 100;
+            
+            brushPreview.style.width = size + 'px';
+            brushPreview.style.height = size + 'px';
+            brushPreview.style.left = e.clientX + 'px';
+            brushPreview.style.top = e.clientY + 'px';
+            brushPreview.style.opacity = opacity;
+        }
+
+        canvas.addEventListener('mousemove', updateBrushPreview);
+
+        // Implement smooth drawing
+        let points = [];
+        let lastDrawTime = 0;
+
+        function drawSmoothLine() {
+            if (points.length < 2) return;
+
+            ctx.beginPath();
+            ctx.moveTo(points[0].x, points[0].y);
+
+            for (let i = 1; i < points.length - 2; i++) {
+                const xc = (points[i].x + points[i + 1].x) / 2;
+                const yc = (points[i].y + points[i + 1].y) / 2;
+                ctx.quadraticCurveTo(points[i].x, points[i].y, xc, yc);
+            }
+
+            ctx.stroke();
+        }
+
+        // Implement pan and zoom
+        function handleWheel(e) {
+            if (e.ctrlKey) {
+                e.preventDefault();
+                const zoom = e.deltaY > 0 ? 0.9 : 1.1;
+                scale *= zoom;
+                
+                // Zoom toward mouse position
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+                
+                offsetX = mouseX - (mouseX - offsetX) * zoom;
+                offsetY = mouseY - (mouseY - offsetY) * zoom;
+                
+                redrawCanvas();
+            }
+        }
+
+        canvas.addEventListener('wheel', handleWheel);
+
+        // Implement keyboard shortcuts
+        document.addEventListener('keydown', e => {
+            if (e.key === ' ') {
+                isSpacePressed = true;
+                canvas.style.cursor = 'grab';
+            } else if (e.key === 'b') {
+                currentTool = 'brush';
+                updateToolUI();
+            } else if (e.key === 'e') {
+                currentTool = 'eraser';
+                updateToolUI();
+            }
+            // Add more shortcuts
+        });
+
+        document.addEventListener('keyup', e => {
+            if (e.key === ' ') {
+                isSpacePressed = false;
+                canvas.style.cursor = 'crosshair';
+            }
+        });
+
+        // Implement symmetry
+        function drawWithSymmetry(x, y) {
+            const centerX = canvas.width / 2;
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(x, y);
+            ctx.stroke();
+
+            // Mirror horizontally
+            ctx.beginPath();
+            ctx.moveTo(centerX + (centerX - lastX), lastY);
+            ctx.lineTo(centerX + (centerX - x), y);
+            ctx.stroke();
+        }
+
+        // Implement layers
+        function createLayer() {
+            const layerCanvas = document.createElement('canvas');
+            layerCanvas.width = canvas.width;
+            layerCanvas.height = canvas.height;
+            layers.push(layerCanvas);
+            currentLayer = layers.length - 1;
+            updateLayerUI();
+        }
+
+        // Initialize first layer
+        createLayer();
+
+        // Update UI functions
+        function updateToolUI() {
+            document.querySelectorAll('#toolbar button').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.id === currentTool) {
+                    btn.classList.add('active');
+                }
+            });
+        }
+
+        function updateLayerUI() {
+            // Update layer panel
+        }
+
+        // Handle loading state
+        function showLoading() {
+            document.querySelector('.loading-overlay').classList.add('visible');
+        }
+
+        function hideLoading() {
+            document.querySelector('.loading-overlay').classList.remove('visible');
+        }
+
+        // Initialize the app
+        function init() {
+            // Create color palette
+            const defaultColors = ['#000000', '#ffffff', '#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
+            const palette = document.createElement('div');
+            palette.className = 'palette';
+            defaultColors.forEach(color => {
+                const swatch = document.createElement('div');
+                swatch.className = 'color-swatch';
+                swatch.style.backgroundColor = color;
+                swatch.onclick = () => {
+                    document.getElementById('colorPicker').value = color;
+                    document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+                    swatch.classList.add('active');
+                };
+                palette.appendChild(swatch);
+            });
+            document.querySelector('.settings-panel').appendChild(palette);
+
+            // Initialize other UI elements
+            updateToolUI();
+            hideLoading();
+        }
+
+        // Start the application
+        init();
+    </script>
+</body>
+</html>
